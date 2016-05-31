@@ -1,16 +1,22 @@
 //Add individual task timing statistics
 //Add global timing statistics
-//Doesn't fully support a limited number of occurances
 
 /**************************************************************************************************
 Authours:				Craig Comberbach
 Target Hardware:		PIC24F
-Chip resources used:	Uses a timer
-Code assumptions:
-Purpose:				
+Chip resources used:	Uses timer1
+Code assumptions:		
+Purpose:				Allows easy scheduling of tasks with minimal overhead
 
 Version History:
-
+v0.1.0	2016-05-30	Craig Comberbach	Compiler: XC16 v1.11	IDE: MPLABx 3.30	Tool: ICD3		Computer: Intel Core2 Quad CPU 2.40 GHz, 5 GB RAM, Windows 10 Home 64-bit
+ Added limited recurrence
+ Refactored the Task Master function to be simpler
+ Added Auto-Magic? calculation of Timer1 during initialization
+v0.0.0	2016-05-26	Craig Comberbach	Compiler: XC16 v1.11	IDE: MPLABx 3.30	Tool: ICD3		Computer: Intel Core2 Quad CPU 2.40 GHz, 5 GB RAM, Windows 10 Home 64-bit
+ First version - Most functionality implemented
+ Does not implement limited recurrence tasks, only permanent ones
+ 
 **************************************************************************************************/
 /*************    Header Files    ***************/
 #include "Config.h"
@@ -19,7 +25,7 @@ Version History:
 /************* Semantic Versioning***************/
 #if SCHEDULER_MAJOR != 0
 	#error "Scheduler library has had a change that loses some previously supported functionality"
-#elif SCHEDULER_MINOR != 0
+#elif SCHEDULER_MINOR != 1
 	#error "Scheduler library has new features that this code may benefit from"
 #elif SCHEDULER_PATCH != 0
 	#error "Scheduler library has had a bug fix, you should check to see that we weren't relying on a bug for functionality"
@@ -40,9 +46,8 @@ struct SCHEDULED_TASKS
 {
 	#ifdef CONSERVE_MEMORY
 		void (*task)(uint16_t);
-		uint16_t initialDelay_mS;
 		uint16_t period_mS;
-		uint16_t elapsedTime_mS;
+		uint16_t countDown_mS;
 		uint16_t recurrence;
 		uint16_t recurrenceCount;
 		uint16_t minExecutionTime_uS;
@@ -51,9 +56,8 @@ struct SCHEDULED_TASKS
 		uint16_t currentExecutionTime_uS;
 	#else
 		void (*task)(uint32_t);
-		uint32_t initialDelay_mS;
 		uint32_t period_mS;
-		uint32_t elapsedTime_mS;
+		uint32_t countDown_mS;
 		uint32_t recurrence;
 		uint32_t recurrenceCount;
 		uint32_t minExecutionTime_uS;
@@ -81,37 +85,19 @@ void Task_Master_2000(void)
 	for(loop = 0; loop < NUMBER_OF_SCHEDULED_TASKS; ++loop)
 	{
 		ClrWdt();
-		if(scheduledTasks[loop].initialDelay_mS <= schedulerPeriod_mS)
+		if(scheduledTasks[loop].countDown_mS <= schedulerPeriod_mS)
 		{
-			if(scheduledTasks[loop].recurrenceCount > 0)
+			if((scheduledTasks[loop].recurrenceCount < scheduledTasks[loop].recurrence) || (scheduledTasks[loop].recurrence == 0))
 			{
-				if(scheduledTasks[loop].elapsedTime_mS >= scheduledTasks[loop].period_mS)
-				{
-//Record time for future calculation
-					scheduledTasks[loop].task(scheduledTasks[loop].elapsedTime_mS);			//Run the current task, send the time since last execution
-//Snap current time for min/avg/max time evaluation
-					if(++scheduledTasks[loop].recurrenceCount == 0)
-						scheduledTasks[loop].recurrenceCount = 1;
-				}
-				else
-				{
-					scheduledTasks[loop].elapsedTime_mS += schedulerPeriod_mS;				//Continue towards NEXT execution
-				}
-			}
-			else
-			{
-//Record time for future calculation
-				scheduledTasks[loop].task(0);												//Run the current task, indicate this is the first time running (0mS)
-//Snap current time for min/avg/max time evaluation
-				scheduledTasks[loop].recurrenceCount = 1;
-				
+				if(++scheduledTasks[loop].recurrenceCount == 0)
+					scheduledTasks[loop].recurrenceCount = 1;
+
+				scheduledTasks[loop].countDown_mS = scheduledTasks[loop].period_mS;	//Reset for next time
+				scheduledTasks[loop].task(scheduledTasks[loop].period_mS);			//Run the current task, send the time since last execution
 			}
 		}
 		else
-		{
-			scheduledTasks[loop].initialDelay_mS -= schedulerPeriod_mS;						//Continue towards FIRST execution
-		}
-			
+			scheduledTasks[loop].countDown_mS -= schedulerPeriod_mS;
 	}
 
 	delayFlag = 0;
@@ -121,14 +107,23 @@ void Task_Master_2000(void)
 
 void Initialize_Scheduler(uint32_t newPeriod_mS)
 {
-//	I need Instruction clock (FCY Hz)
-//	I need period (mS))
-//	I need Number of schedulable tasks
+	//Ensure the period makes sense
 	if(newPeriod_mS != 0)
 		schedulerPeriod_mS = newPeriod_mS;
 	else
-		while(1);//TODO - DEBUG ME! I should never execute
+		while(1)//TODO - DEBUG ME! I should never execute
+			ClrWdt();
 
+	//Auto-Magically setup Timer1
+	PR1				= (newPeriod_mS * FCY_kHz) / 8;//500 = 1 mS assuming Prescaler /8
+	IEC0bits.T1IE	= 1;
+	T1CONbits.TCS	= 0;
+//	T1CONbits.TSYNC	= Ignored
+	T1CONbits.TCKPS	= 1; //1 = Fcy/8
+	T1CONbits.TGATE	= 0;
+	T1CONbits.TSIDL	= 0;
+	T1CONbits.TON	= 1;
+	
 	return;
 }
 
@@ -138,12 +133,20 @@ void Schedule_Task(enum SCHEDULER_DEFINITIONS taskName, void (*newTask)(uint32_t
 	if(*newTask  != (void*)0)
 		scheduledTasks[taskName].task = newTask;
 	else
-		while(1);//TODO - DEBUG ME! I should never execute
+		while(1)//TODO - DEBUG ME! I should never execute
+			ClrWdt();
+
+	if(newPeriod_mS < schedulerPeriod_mS)
+		while(1)//TODO - DEBUG ME! I should never execute
+			ClrWdt();
+
+	if(newInitialDelay_mS < schedulerPeriod_mS)
+		while(1)//TODO - DEBUG ME! I should never execute
+			ClrWdt();
 
 	//Timing Information
-	scheduledTasks[taskName].initialDelay_mS = newInitialDelay_mS;
+	scheduledTasks[taskName].countDown_mS = newInitialDelay_mS;
 	scheduledTasks[taskName].period_mS = newPeriod_mS;
-	scheduledTasks[taskName].elapsedTime_mS = 0;
 
 	//Recurrence Information
 	scheduledTasks[taskName].recurrence = newRepetitions;
