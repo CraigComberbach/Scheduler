@@ -25,7 +25,7 @@ v0.0.0	2016-05-26	Craig Comberbach	Compiler: XC16 v1.11	IDE: MPLABx 3.30	Tool: I
 /************* Semantic Versioning***************/
 #if SCHEDULER_MAJOR != 0
 	#error "Scheduler library has had a change that loses some previously supported functionality"
-#elif SCHEDULER_MINOR != 1
+#elif SCHEDULER_MINOR != 2
 	#error "Scheduler library has new features that this code may benefit from"
 #elif SCHEDULER_PATCH != 0
 	#error "Scheduler library has had a bug fix, you should check to see that we weren't relying on a bug for functionality"
@@ -33,37 +33,45 @@ v0.0.0	2016-05-26	Craig Comberbach	Compiler: XC16 v1.11	IDE: MPLABx 3.30	Tool: I
 
 /************Arbitrary Functionality*************/
 /*************   Magic  Numbers   ***************/
+#define NULL_POINTER	(void*)0
+
 /*************    Enumeration     ***************/
 /***********State Machine Definitions************/
 /*************  Global Variables  ***************/
 #ifdef CONSERVE_MEMORY
-	uint16_t schedulerPeriod_mS;
+	uint16_t schedulerPeriod_uS;
 #else
-	uint32_t schedulerPeriod_mS;
+	uint32_t schedulerPeriod_uS;
 #endif
-
+#define TASK_PROFILING_ENABLED
 struct SCHEDULED_TASKS
 {
 	#ifdef CONSERVE_MEMORY
 		void (*task)(uint16_t);
-		uint16_t period_mS;
-		uint16_t countDown_mS;
-		uint16_t recurrence;
+		uint16_t period_uS;
+		uint16_t countDown_uS;
+		uint16_t recurrenceTarget;
 		uint16_t recurrenceCount;
-		uint16_t minExecutionTime_uS;
-		uint16_t avgExecutionTime_uS;
-		uint16_t maxExecutionTime_uS;
-		uint16_t currentExecutionTime_uS;
+		#ifdef TASK_PROFILING_ENABLED
+			uint16_t minExecutionTime_FCYticks;
+			uint16_t avgExecutionTime_FCYticks;
+			uint32_t sumExecutionTime_FCYticks;
+			uint16_t maxExecutionTime_FCYticks;
+			uint16_t currentExecutionTime_FCYticks;
+		#endif
 	#else
 		void (*task)(uint32_t);
-		uint32_t period_mS;
-		uint32_t countDown_mS;
-		uint32_t recurrence;
+		uint32_t period_uS;
+		uint32_t countDown_uS;
+		uint32_t recurrenceTarget;
 		uint32_t recurrenceCount;
-		uint32_t minExecutionTime_uS;
-		uint32_t avgExecutionTime_uS;
-		uint32_t maxExecutionTime_uS;
-		uint32_t currentExecutionTime_uS;
+		#ifdef TASK_PROFILING_ENABLED
+			uint32_t minExecutionTime_FCYticks;
+			uint32_t sumExecutionTime_FCYticks;
+			uint32_t avgExecutionTime_FCYticks;
+			uint32_t maxExecutionTime_FCYticks;
+			uint32_t currentExecutionTime_FCYticks;
+		#endif
 	#endif
 } scheduledTasks[NUMBER_OF_SCHEDULED_TASKS];
 uint32_t minGlobalExecutionTime_uS;
@@ -78,26 +86,47 @@ void __attribute__((interrupt, auto_psv)) _T1Interrupt(void);
 /************* Module Definitions ***************/
 /************* Other  Definitions ***************/
 
-void Task_Master_2000(void)
+void Task_Master(void)
 {
-	int16_t loop;
+	int16_t taskIndex;
+	int16_t time;
 	
-	for(loop = 0; loop < NUMBER_OF_SCHEDULED_TASKS; ++loop)
+	for(taskIndex = 0; taskIndex < NUMBER_OF_SCHEDULED_TASKS; ++taskIndex)
 	{
-		ClrWdt();
-		if(scheduledTasks[loop].countDown_mS <= schedulerPeriod_mS)
+		if(scheduledTasks[taskIndex].task == NULL_POINTER)
+            continue;
+        
+		if(scheduledTasks[taskIndex].countDown_uS <= schedulerPeriod_uS)
 		{
-			if((scheduledTasks[loop].recurrenceCount < scheduledTasks[loop].recurrence) || (scheduledTasks[loop].recurrence == 0))
+			if((scheduledTasks[taskIndex].recurrenceCount < scheduledTasks[taskIndex].recurrenceTarget) || (scheduledTasks[taskIndex].recurrenceTarget == PERMANENT_TASK))
 			{
-				if(++scheduledTasks[loop].recurrenceCount == 0)
-					scheduledTasks[loop].recurrenceCount = 1;
+				//Document how many times this task has run (safely rolls over)
+				if(++scheduledTasks[taskIndex].recurrenceCount == 0)
+					scheduledTasks[taskIndex].recurrenceCount = 1;
 
-				scheduledTasks[loop].countDown_mS = scheduledTasks[loop].period_mS;	//Reset for next time
-				scheduledTasks[loop].task(scheduledTasks[loop].period_mS);			//Run the current task, send the time since last execution
+				scheduledTasks[taskIndex].countDown_uS = scheduledTasks[taskIndex].period_uS;	//Reset for next time
+				time = TMR1;//Record when the task started
+				scheduledTasks[taskIndex].task(scheduledTasks[taskIndex].period_uS);			//Run the current task, send the time since last execution
+				time = TMR1 - time;//Record how long the task took
+
+				//Task profiling
+				#ifdef TASK_PROFILING_ENABLED
+					//Minimum execution Time
+					if(time < scheduledTasks[taskIndex].minExecutionTime_FCYticks)
+						scheduledTasks[taskIndex].minExecutionTime_FCYticks = time;
+
+					//Maximum Execution time
+					if(time > scheduledTasks[taskIndex].maxExecutionTime_FCYticks)
+						scheduledTasks[taskIndex].maxExecutionTime_FCYticks = time;
+
+					//Average Execution Time
+					scheduledTasks[taskIndex].sumExecutionTime_FCYticks += time;
+					scheduledTasks[taskIndex].avgExecutionTime_FCYticks = scheduledTasks[taskIndex].sumExecutionTime_FCYticks / scheduledTasks[taskIndex].recurrenceCount;
+				#endif
 			}
 		}
 		else
-			scheduledTasks[loop].countDown_mS -= schedulerPeriod_mS;
+			scheduledTasks[taskIndex].countDown_uS -= schedulerPeriod_uS;
 	}
 
 	delayFlag = 0;
@@ -105,59 +134,75 @@ void Task_Master_2000(void)
 	return;
 }
 
-void Initialize_Scheduler(uint32_t newPeriod_mS)
+void Initialize_Scheduler(uint32_t newPeriod_uS)
 {
+	uint32_t period;
+    uint8_t loopIndex = 0;
+
 	//Ensure the period makes sense
-	if(newPeriod_mS != 0)
-		schedulerPeriod_mS = newPeriod_mS;
+	if(newPeriod_uS != 0)
+		schedulerPeriod_uS = newPeriod_uS;
 	else
 		while(1)//TODO - DEBUG ME! I should never execute
-			ClrWdt();
+			asm("ClrWdt");
 
+	period = FCY_MHz;
+	period *= newPeriod_uS;
+	
+	if(period > 65535)
+		while(1);//This period can never run, we only have 16 bits of register
+
+    for(loopIndex = 0; loopIndex < NUMBER_OF_SCHEDULED_TASKS; loopIndex++)
+    {
+        scheduledTasks[loopIndex].task = NULL_POINTER;
+    }
+        
 	//Auto-Magically setup Timer1
-	PR1				= (newPeriod_mS * FCY_kHz) / 8;//500 = 1 mS assuming Prescaler /8
+	PR1				= (uint16_t)period;
 	IEC0bits.T1IE	= 1;
-	T1CONbits.TCS	= 0;
-//	T1CONbits.TSYNC	= Ignored
-	T1CONbits.TCKPS	= 1; //1 = Fcy/8
-	T1CONbits.TGATE	= 0;
-	T1CONbits.TSIDL	= 0;
-	T1CONbits.TON	= 1;
+	T1CONbits.TCS	= 0;	//0 = Internal clock (FOSC/2)
+//	T1CONbits.TSYNC	= 1;	//When TCS = 0: This bit is ignored.
+	T1CONbits.TCKPS	= 0;	//00 = 1:1
+	T1CONbits.TGATE	= 0;	//0 = Gated time accumulation disabled
+	T1CONbits.TSIDL	= 0;	//0 = Continue module operation in Idle mode
+	T1CONbits.TON	= 1;	//1 = Starts 16-bit Timer1
 	
 	return;
 }
 
-void Schedule_Task(enum SCHEDULER_DEFINITIONS taskName, void (*newTask)(uint32_t), uint16_t newInitialDelay_mS, uint16_t newPeriod_mS, uint16_t newRepetitions)
+void Schedule_Task(enum SCHEDULER_DEFINITIONS taskName, void (*newTask)(uint32_t), uint32_t newInitialDelay_uS, uint32_t newPeriod_uS, uint16_t newRepetitions)
 {
 	//Task Information
-	if(*newTask  != (void*)0)
+	if(*newTask  != NULL_POINTER)
 		scheduledTasks[taskName].task = newTask;
 	else
 		while(1)//TODO - DEBUG ME! I should never execute
-			ClrWdt();
+			asm("ClrWdt");
 
-	if(newPeriod_mS < schedulerPeriod_mS)
+	if(newPeriod_uS < schedulerPeriod_uS)
 		while(1)//TODO - DEBUG ME! I should never execute
-			ClrWdt();
+			asm("ClrWdt");
 
-	if(newInitialDelay_mS < schedulerPeriod_mS)
+	if(newInitialDelay_uS < schedulerPeriod_uS)
 		while(1)//TODO - DEBUG ME! I should never execute
-			ClrWdt();
+			asm("ClrWdt");
 
 	//Timing Information
-	scheduledTasks[taskName].countDown_mS = newInitialDelay_mS;
-	scheduledTasks[taskName].period_mS = newPeriod_mS;
+	scheduledTasks[taskName].countDown_uS = newInitialDelay_uS;
+	scheduledTasks[taskName].period_uS = newPeriod_uS;
 
 	//Recurrence Information
-	scheduledTasks[taskName].recurrence = newRepetitions;
+	scheduledTasks[taskName].recurrenceTarget = newRepetitions;
 	scheduledTasks[taskName].recurrenceCount = 0;
 
-	//Runtime Statistics Information
-	scheduledTasks[taskName].currentExecutionTime_uS = 0;
-	scheduledTasks[taskName].minExecutionTime_uS = ~0;
-	scheduledTasks[taskName].avgExecutionTime_uS = 0;
-	scheduledTasks[taskName].maxExecutionTime_uS = 0;
-	
+	#ifdef TASK_PROFILING_ENABLED
+		//Runtime Statistics Information
+		scheduledTasks[taskName].currentExecutionTime_FCYticks = 0;
+		scheduledTasks[taskName].minExecutionTime_FCYticks = ~0;
+		scheduledTasks[taskName].avgExecutionTime_FCYticks = 0;
+		scheduledTasks[taskName].maxExecutionTime_FCYticks = 0;
+	#endif
+
 	return;
 }
 
@@ -166,10 +211,18 @@ int8_t Waiting_To_Run_Tasks(void)
 	return delayFlag;
 }
 
+void Expedite_Task(enum SCHEDULER_DEFINITIONS taskToExpedite)
+{
+    if(taskToExpedite < NUMBER_OF_SCHEDULED_TASKS)
+        scheduledTasks[taskToExpedite].countDown_uS = 0;
+    
+    return;
+}
+
 void __attribute__((interrupt, auto_psv)) _T1Interrupt(void)
 {
+	IFS0bits.T1IF = 0;
 	delayFlag = 1;
 	TMR1 = 0;
-	IFS0bits.T1IF = 0;
 	return;
 }

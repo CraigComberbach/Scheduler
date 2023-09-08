@@ -2,15 +2,25 @@
 #define	SCHEDULER_H
 
 /*
-Instructions for adding to a new project:
+ * Instructions for adding to a new project:
+ * 
+ * How to Use:
+ * The scheduler is able to use functions of the following format
+ *   void Name_Of_Routine(unsigned long time_mS)
 */
 
 /***********Add to config file header************/
 /*
-//A2D Library
+//Scheduler Library
 #define SCHEDULER_MAJOR	0
-#define SCHEDULER_MINOR	0
+#define SCHEDULER_MINOR	2
 #define SCHEDULER_PATCH	0
+
+enum SCHEDULER_DEFINITIONS
+{
+	TASK_,
+	NUMBER_OF_SCHEDULED_TASKS
+};
 */
 
 /***************Add to config file***************/
@@ -25,14 +35,18 @@ Instructions for adding to a new project:
 
 /*************   Magic  Numbers   ***************/
 #define PERMANENT_TASK	0
+#define us				1
+#define ms				1000
+#define s				1000000
 
 /*************    Enumeration     ***************/
 /***********State Machine Definitions************/
 /*************Function  Prototypes***************/
-void Task_Master_2000(void);
-void Initialize_Scheduler(uint32_t newPeriod_mS);
-void Schedule_Task(enum SCHEDULER_DEFINITIONS taskDuJour, void (*newTask)(uint32_t), uint16_t newInitialDelay_mS, uint16_t newPeriod_mS, uint16_t newRepetitions);
+void Task_Master(void);
+void Initialize_Scheduler(uint32_t newPeriod_uS);
+void Schedule_Task(enum SCHEDULER_DEFINITIONS taskDuJour, void (*newTask)(uint32_t), uint32_t newInitialDelay_uS, uint32_t newPeriod_uS, uint16_t newRepetitions);
 int8_t Waiting_To_Run_Tasks(void);
+void Expedite_Task(enum SCHEDULER_DEFINITIONS taskToExpedite);
 
 #endif	/* SCHEDULER_H */
 
