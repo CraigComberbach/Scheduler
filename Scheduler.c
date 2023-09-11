@@ -1,5 +1,9 @@
 /**************************************************************************************************
 Version History:
+v1.0.0	2023-09-11	Craig Comberbach	Compiler: XC16 v2.00
+ * The schedule now handles the infinite while loop
+ * Task profiling is now done with an inline algorithim instead of sum and divide
+ * The Scheduler timer is now handled by the timer library
 v0.1.0	2016-05-30	Craig Comberbach	Compiler: XC16 v1.11
  * Added limited recurrence
  * Refactored the Task Master function to be simpler
@@ -13,6 +17,7 @@ v0.0.0	2016-05-26	Craig Comberbach	Compiler: XC16 v1.11
 #include <stdint.h>
 #include "Config.h"
 #include "Scheduler.h"
+#include "Timers.h"
 
 /*************Semantic  Versioning***************/
 #if SCHEDULER_MAJOR != 0
@@ -25,8 +30,6 @@ v0.0.0	2016-05-26	Craig Comberbach	Compiler: XC16 v1.11
 
 /*************   Magic  Numbers   ***************/
 #define NULL_POINTER	(void*)0
-
-#define TASK_PROFILING_ENABLED
 
 /*************    Enumeration     ***************/
 /***********  Structure Definitions  ************/
@@ -41,18 +44,15 @@ struct SCHEDULED_TASKS
 	uint32_t countDown_uS;
 	uint32_t recurrenceTarget;
 	uint32_t recurrenceCount;
-	#ifdef TASK_PROFILING_ENABLED
-		uint32_t minExecutionTime_FCYticks;
-		uint32_t sumExecutionTime_FCYticks;
-		uint32_t avgExecutionTime_FCYticks;
-		uint32_t maxExecutionTime_FCYticks;
-		uint32_t currentExecutionTime_FCYticks;
-	#endif
+	
+	//Task Profiling
+	uint16_t minExecutionTime_FCYticks;
+	uint16_t avgExecutionTime_FCYticks;
+	uint16_t maxExecutionTime_FCYticks;
 } scheduledTasks[NUMBER_OF_SCHEDULED_TASKS];
 
-uint32_t minGlobalExecutionTime_uS;
-uint32_t avgGlobalExecutionTime_uS;
-uint32_t maxGlobalExecutionTime_uS;
+volatile uint16_t *TimerForProfiling;
+
 int16_t delayFlag = 0;
 
 /*************Function  Prototypes***************/
@@ -76,7 +76,8 @@ void Scheduler_Run_Tasks(void)
 void Run_Tasks(void)
 {
 	int16_t taskIndex;
-	int16_t time;
+	int32_t time;
+	
 
 	for(taskIndex = 0; taskIndex < NUMBER_OF_SCHEDULED_TASKS; ++taskIndex)
 	{
@@ -92,24 +93,21 @@ void Run_Tasks(void)
 					scheduledTasks[taskIndex].recurrenceCount = 1;
 
 				scheduledTasks[taskIndex].countDown_uS = scheduledTasks[taskIndex].period_uS;	//Reset for next time
-				time = TMR1;//Record when the task started
+				time = *TimerForProfiling;//Record when the task started
 				scheduledTasks[taskIndex].task(scheduledTasks[taskIndex].period_uS);			//Run the current task, send the time since last execution
-				time = TMR1 - time;//Record how long the task took
+				time = *TimerForProfiling - time;//Record how long the task took
 
 				//Task profiling
-				#ifdef TASK_PROFILING_ENABLED
-					//Minimum execution Time
-					if(time < scheduledTasks[taskIndex].minExecutionTime_FCYticks)
-						scheduledTasks[taskIndex].minExecutionTime_FCYticks = time;
+				//Minimum execution Time
+				if(time < scheduledTasks[taskIndex].minExecutionTime_FCYticks)
+					scheduledTasks[taskIndex].minExecutionTime_FCYticks = time;
 
-					//Maximum Execution time
-					if(time > scheduledTasks[taskIndex].maxExecutionTime_FCYticks)
-						scheduledTasks[taskIndex].maxExecutionTime_FCYticks = time;
+				//Maximum Execution time
+				if(time > scheduledTasks[taskIndex].maxExecutionTime_FCYticks)
+					scheduledTasks[taskIndex].maxExecutionTime_FCYticks = time;
 
-					//Average Execution Time
-					scheduledTasks[taskIndex].sumExecutionTime_FCYticks += time;
-					scheduledTasks[taskIndex].avgExecutionTime_FCYticks = scheduledTasks[taskIndex].sumExecutionTime_FCYticks / scheduledTasks[taskIndex].recurrenceCount;
-				#endif
+				//Average Execution Time
+				scheduledTasks[taskIndex].avgExecutionTime_FCYticks = scheduledTasks[taskIndex].avgExecutionTime_FCYticks + (time - scheduledTasks[taskIndex].avgExecutionTime_FCYticks) / (int32_t)scheduledTasks[taskIndex].recurrenceCount;
 			}
 		}
 		else
@@ -153,16 +151,13 @@ void Scheduler_Add_Task(enum SCHEDULER_DEFINITIONS taskName, void (*newTask)(uin
 	if(*newTask  != NULL_POINTER)
 		scheduledTasks[taskName].task = newTask;
 	else
-		while(1)//TODO - DEBUG ME! I should never execute
-			asm("ClrWdt");
+		while(1);//TODO - DEBUG ME! I should never execute
 
 	if(newPeriod_uS < schedulerPeriod_uS)
-		while(1)//TODO - DEBUG ME! I should never execute
-			asm("ClrWdt");
+		while(1);//TODO - DEBUG ME! I should never execute
 
 	if(newInitialDelay_uS < schedulerPeriod_uS)
-		while(1)//TODO - DEBUG ME! I should never execute
-			asm("ClrWdt");
+		while(1);//TODO - DEBUG ME! I should never execute
 
 	//Timing Information
 	scheduledTasks[taskName].countDown_uS = newInitialDelay_uS;
@@ -172,13 +167,10 @@ void Scheduler_Add_Task(enum SCHEDULER_DEFINITIONS taskName, void (*newTask)(uin
 	scheduledTasks[taskName].recurrenceTarget = newRepetitions;
 	scheduledTasks[taskName].recurrenceCount = 0;
 
-	#ifdef TASK_PROFILING_ENABLED
-		//Runtime Statistics Information
-		scheduledTasks[taskName].currentExecutionTime_FCYticks = 0;
-		scheduledTasks[taskName].minExecutionTime_FCYticks = ~0;
-		scheduledTasks[taskName].avgExecutionTime_FCYticks = 0;
-		scheduledTasks[taskName].maxExecutionTime_FCYticks = 0;
-	#endif
+	//Runtime Statistics Information
+	scheduledTasks[taskName].minExecutionTime_FCYticks = ~0;
+	scheduledTasks[taskName].avgExecutionTime_FCYticks = 0;
+	scheduledTasks[taskName].maxExecutionTime_FCYticks = 0;
 
 	return;
 }
