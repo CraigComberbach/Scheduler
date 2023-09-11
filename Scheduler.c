@@ -146,36 +146,39 @@ void Scheduler_Add_Profiling_Clock(volatile uint16_t *profilingTimer)
 	return;
 }
 
-void Scheduler_Add_Task(enum SCHEDULER_DEFINITIONS taskName, void (*newTask)(uint32_t), uint32_t newInitialDelay_uS, uint32_t newPeriod_uS, uint16_t newRepetitions)
+void Scheduler_Add_Task(enum SCHEDULER_DEFINITIONS task, void (*newTask)(uint32_t), uint32_t initialDelay_uS, uint32_t taskPeriod_uS, uint16_t numberOfRepetitions)
 {
 	if(*newTask  == NULL_POINTER)
 		while(1);//TODO - error handling
 
-	if(newPeriod_uS < schedulerPeriod_uS)
+	if(taskPeriod_uS < schedulerPeriod_uS)
 		while(1);//TODO - error handling
 
-	if(newInitialDelay_uS < schedulerPeriod_uS)
+	if(initialDelay_uS < schedulerPeriod_uS)
 		while(1);//TODO - error handling
 
-	scheduledTasks[taskName].task = newTask;
+	scheduledTasks[task].task = newTask;
+	scheduledTasks[task].state = RUNNING;
 
-	scheduledTasks[taskName].countDown_uS = newInitialDelay_uS;
-	scheduledTasks[taskName].period_uS = newPeriod_uS;
+	scheduledTasks[task].countDown_uS = initialDelay_uS;
+	scheduledTasks[task].period_uS = taskPeriod_uS;
 
-	scheduledTasks[taskName].recurrenceTarget = newRepetitions;
-	scheduledTasks[taskName].recurrenceCount = 0;
+	scheduledTasks[task].recurrenceTarget = numberOfRepetitions;
+	scheduledTasks[task].recurrenceCount = 0;
 
-	scheduledTasks[taskName].minExecutionTime_FCYticks = ~0;
-	scheduledTasks[taskName].avgExecutionTime_FCYticks = 0;
-	scheduledTasks[taskName].maxExecutionTime_FCYticks = 0;
+	scheduledTasks[task].minExecutionTime_FCYticks = UINT16_MAX;
+	scheduledTasks[task].avgExecutionTime_FCYticks = 0;
+	scheduledTasks[task].maxExecutionTime_FCYticks = 0;
 
 	return;
 }
 
-void Scheduler_Expedite_Task(enum SCHEDULER_DEFINITIONS taskToExpedite)
+void Scheduler_Expedite_Task(enum SCHEDULER_DEFINITIONS task)
 {
-    if(taskToExpedite < NUMBER_OF_SCHEDULED_TASKS)
-        scheduledTasks[taskToExpedite].countDown_uS = 0;
+    if(task < NUMBER_OF_SCHEDULED_TASKS)
+	{
+        scheduledTasks[task].countDown_uS = 0;
+	}
     
     return;
 }

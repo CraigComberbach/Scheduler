@@ -44,8 +44,8 @@ enum SCHEDULER_DEFINITIONS
 void Scheduler_Run_Tasks(void);
 void Scheduler_Initialize(uint32_t newPeriod_uS);
 void Scheduler_Add_Profiling_Clock(volatile uint16_t *profilingTimer);
-void Scheduler_Add_Task(enum SCHEDULER_DEFINITIONS taskDuJour, void (*newTask)(uint32_t), uint32_t newInitialDelay_uS, uint32_t newPeriod_uS, uint16_t newRepetitions);
-void Scheduler_Expedite_Task(enum SCHEDULER_DEFINITIONS taskToExpedite);
+void Scheduler_Add_Task(enum SCHEDULER_DEFINITIONS task, void (*newTask)(uint32_t), uint32_t initialDelay_uS, uint32_t taskPeriod_uS, uint16_t numberOfRepetitions);
+void Scheduler_Expedite_Task(enum SCHEDULER_DEFINITIONS task);
 void Scheduler_Tick_Interupt(void);
 
 /* New functions to implement
