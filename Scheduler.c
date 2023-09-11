@@ -56,12 +56,28 @@ uint32_t maxGlobalExecutionTime_uS;
 int16_t delayFlag = 0;
 
 /*************Function  Prototypes***************/
+void Run_Tasks(void);
+
 /************* Main Body Of Code  ***************/
-void Scheduler_Run(void)
+void Scheduler_Run_Tasks(void)
+{
+	while(1)
+	{
+		while(Waiting_To_Run_Tasks())
+		{
+			asm("ClrWdt");
+			Run_Tasks();
+		}
+	}
+	
+	return;
+}
+
+void Run_Tasks(void)
 {
 	int16_t taskIndex;
 	int16_t time;
-	
+
 	for(taskIndex = 0; taskIndex < NUMBER_OF_SCHEDULED_TASKS; ++taskIndex)
 	{
 		if(scheduledTasks[taskIndex].task == NULL_POINTER)
