@@ -80,7 +80,6 @@ uint32_t maxGlobalExecutionTime_uS;
 int16_t delayFlag = 0;
 
 /*************Function  Prototypes***************/
-void __attribute__((interrupt, auto_psv)) _T1Interrupt(void);
 
 /************* Device Definitions ***************/
 /************* Module Definitions ***************/
@@ -156,16 +155,6 @@ void Initialize_Scheduler(uint32_t newPeriod_uS)
     {
         scheduledTasks[loopIndex].task = NULL_POINTER;
     }
-        
-	//Auto-Magically setup Timer1
-	PR1				= (uint16_t)period;
-	IEC0bits.T1IE	= 1;
-	T1CONbits.TCS	= 0;	//0 = Internal clock (FOSC/2)
-//	T1CONbits.TSYNC	= 1;	//When TCS = 0: This bit is ignored.
-	T1CONbits.TCKPS	= 0;	//00 = 1:1
-	T1CONbits.TGATE	= 0;	//0 = Gated time accumulation disabled
-	T1CONbits.TSIDL	= 0;	//0 = Continue module operation in Idle mode
-	T1CONbits.TON	= 1;	//1 = Starts 16-bit Timer1
 	
 	return;
 }
@@ -219,10 +208,8 @@ void Expedite_Task(enum SCHEDULER_DEFINITIONS taskToExpedite)
     return;
 }
 
-void __attribute__((interrupt, auto_psv)) _T1Interrupt(void)
+void Scheduler_Tick_Interupt(void)
 {
-	IFS0bits.T1IF = 0;
 	delayFlag = 1;
-	TMR1 = 0;
 	return;
 }

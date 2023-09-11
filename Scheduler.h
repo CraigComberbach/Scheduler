@@ -47,6 +47,7 @@ void Initialize_Scheduler(uint32_t newPeriod_uS);
 void Schedule_Task(enum SCHEDULER_DEFINITIONS taskDuJour, void (*newTask)(uint32_t), uint32_t newInitialDelay_uS, uint32_t newPeriod_uS, uint16_t newRepetitions);
 int8_t Waiting_To_Run_Tasks(void);
 void Expedite_Task(enum SCHEDULER_DEFINITIONS taskToExpedite);
+void Scheduler_Tick_Interupt(void);
 
 #endif	/* SCHEDULER_H */
 
