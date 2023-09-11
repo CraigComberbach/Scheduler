@@ -47,11 +47,14 @@ void Scheduler_Add_Profiling_Clock(volatile uint16_t *profilingTimer);
 void Scheduler_Add_Task(enum SCHEDULER_DEFINITIONS task, void (*newTask)(uint32_t), uint32_t initialDelay_uS, uint32_t taskPeriod_uS, uint16_t numberOfRepetitions);
 void Scheduler_Expedite_Task(enum SCHEDULER_DEFINITIONS task);
 void Scheduler_Tick_Interupt(void);
+void Scheduler_Start_Task(enum SCHEDULER_DEFINITIONS task);
+void Scheduler_Pause_Task(enum SCHEDULER_DEFINITIONS task);
+void Scheduler_End_Task(enum SCHEDULER_DEFINITIONS task);
 
 /* New functions to implement
  *  StartTask
  *  PauseTask
- *  StopTask
+ *  EndTask
  * 
  * Additional functionality to add to tasks
  *  Arbitrary pointer, normally not used, but can be assigned as needed

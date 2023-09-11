@@ -32,6 +32,13 @@ v0.0.0	2016-05-26	Craig Comberbach	Compiler: XC16 v1.11
 #define NULL_POINTER	(void*)0
 
 /*************    Enumeration     ***************/
+enum SCHEDULER_STATE
+{
+	RUNNING,
+	PAUSED,
+	FINISHED
+};
+
 /***********  Structure Definitions  ************/
 /***********State Machine Definitions************/
 /*************  Global Variables  ***************/
@@ -40,6 +47,7 @@ uint32_t schedulerPeriod_uS = 0;
 struct SCHEDULED_TASKS
 {
 	void (*task)(uint32_t);
+	enum SCHEDULER_STATE state;
 	uint32_t period_uS;
 	uint32_t countDown_uS;
 	uint32_t recurrenceTarget;
@@ -85,6 +93,9 @@ void Run_Tasks(void)
 		if(scheduledTasks[taskIndex].task == NULL_POINTER)
             continue;
         
+		if(scheduledTasks[taskIndex].state != RUNNING)
+			continue;
+		
 		if(scheduledTasks[taskIndex].countDown_uS <= schedulerPeriod_uS)
 		{
 			if((scheduledTasks[taskIndex].recurrenceCount < scheduledTasks[taskIndex].recurrenceTarget) || (scheduledTasks[taskIndex].recurrenceTarget == PERMANENT_TASK))
@@ -134,6 +145,7 @@ void Scheduler_Initialize(uint32_t newPeriod_uS)
     for(task = 0; task < NUMBER_OF_SCHEDULED_TASKS; task++)
     {
         scheduledTasks[task].task = NULL_POINTER;
+		scheduledTasks[task].state = FINISHED;
     }
 	
 	return;
@@ -186,5 +198,43 @@ void Scheduler_Expedite_Task(enum SCHEDULER_DEFINITIONS task)
 void Scheduler_Tick_Interupt(void)
 {
 	delayFlag = 1;
+	return;
+}
+
+void Scheduler_Start_Task(enum SCHEDULER_DEFINITIONS task)
+{
+	if((task < NUMBER_OF_SCHEDULED_TASKS) && (scheduledTasks[task].state == PAUSED))
+	{
+		scheduledTasks[task].state = RUNNING;
+	}
+
+	return;
+}
+
+void Scheduler_Pause_Task(enum SCHEDULER_DEFINITIONS task)
+{
+	if((task < NUMBER_OF_SCHEDULED_TASKS) && (scheduledTasks[task].state == RUNNING))
+	{
+		scheduledTasks[task].state = PAUSED;
+	}
+
+	return;
+}
+
+void Scheduler_End_Task(enum SCHEDULER_DEFINITIONS task)
+{
+	if(task < NUMBER_OF_SCHEDULED_TASKS)
+	{
+		scheduledTasks[task].minExecutionTime_FCYticks = 0;
+		scheduledTasks[task].avgExecutionTime_FCYticks = 0;
+		scheduledTasks[task].maxExecutionTime_FCYticks = 0;
+		scheduledTasks[task].countDown_uS = 0;
+		scheduledTasks[task].period_uS = 0;
+		scheduledTasks[task].recurrenceCount = 0;
+		scheduledTasks[task].recurrenceTarget = 0;
+		scheduledTasks[task].state = FINISHED;
+		scheduledTasks[task].task = NULL_POINTER;
+	}
+	
 	return;
 }
