@@ -6,7 +6,7 @@
  * 
  * How to Use:
  * The scheduler is able to use functions of the following format
- *   void Name_Of_Routine(unsigned long time_mS)
+ *   void Name_Of_Routine(unsigned long time_uS)
 */
 
 /***********Add to config file header************/
@@ -30,8 +30,8 @@ enum SCHEDULER_DEFINITIONS
 #endif
  */
 
-/************* Semantic Versioning***************/
-#define SCHEDULER_LIBRARY
+/*************Semantic  Versioning***************/
+#define SCHEDULER_HAL
 
 /*************   Magic  Numbers   ***************/
 #define PERMANENT_TASK	0

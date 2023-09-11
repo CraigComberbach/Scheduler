@@ -1,28 +1,20 @@
-//Add individual task timing statistics
-//Add global timing statistics
-
 /**************************************************************************************************
-Authours:				Craig Comberbach
-Target Hardware:		PIC24F
-Chip resources used:	Uses timer1
-Code assumptions:		
-Purpose:				Allows easy scheduling of tasks with minimal overhead
-
 Version History:
-v0.1.0	2016-05-30	Craig Comberbach	Compiler: XC16 v1.11	IDE: MPLABx 3.30	Tool: ICD3		Computer: Intel Core2 Quad CPU 2.40 GHz, 5 GB RAM, Windows 10 Home 64-bit
- Added limited recurrence
- Refactored the Task Master function to be simpler
- Added Auto-Magic? calculation of Timer1 during initialization
-v0.0.0	2016-05-26	Craig Comberbach	Compiler: XC16 v1.11	IDE: MPLABx 3.30	Tool: ICD3		Computer: Intel Core2 Quad CPU 2.40 GHz, 5 GB RAM, Windows 10 Home 64-bit
- First version - Most functionality implemented
- Does not implement limited recurrence tasks, only permanent ones
+v0.1.0	2016-05-30	Craig Comberbach	Compiler: XC16 v1.11
+ * Added limited recurrence
+ * Refactored the Task Master function to be simpler
+ * Added Auto-Magic calculation of Timer1 during initialization
+v0.0.0	2016-05-26	Craig Comberbach	Compiler: XC16 v1.11
+ * First version - Most functionality implemented
+ * Does not implement limited recurrence tasks, only permanent ones
  
 **************************************************************************************************/
 /*************    Header Files    ***************/
+#include <stdint.h>
 #include "Config.h"
 #include "Scheduler.h"
 
-/************* Semantic Versioning***************/
+/*************Semantic  Versioning***************/
 #if SCHEDULER_MAJOR != 0
 	#error "Scheduler library has had a change that loses some previously supported functionality"
 #elif SCHEDULER_MINOR != 2
@@ -31,61 +23,41 @@ v0.0.0	2016-05-26	Craig Comberbach	Compiler: XC16 v1.11	IDE: MPLABx 3.30	Tool: I
 	#error "Scheduler library has had a bug fix, you should check to see that we weren't relying on a bug for functionality"
 #endif
 
-/************Arbitrary Functionality*************/
 /*************   Magic  Numbers   ***************/
 #define NULL_POINTER	(void*)0
 
+#define TASK_PROFILING_ENABLED
+
 /*************    Enumeration     ***************/
+/***********  Structure Definitions  ************/
 /***********State Machine Definitions************/
 /*************  Global Variables  ***************/
-#ifdef CONSERVE_MEMORY
-	uint16_t schedulerPeriod_uS;
-#else
-	uint32_t schedulerPeriod_uS;
-#endif
-#define TASK_PROFILING_ENABLED
+uint32_t schedulerPeriod_uS;
+
 struct SCHEDULED_TASKS
 {
-	#ifdef CONSERVE_MEMORY
-		void (*task)(uint16_t);
-		uint16_t period_uS;
-		uint16_t countDown_uS;
-		uint16_t recurrenceTarget;
-		uint16_t recurrenceCount;
-		#ifdef TASK_PROFILING_ENABLED
-			uint16_t minExecutionTime_FCYticks;
-			uint16_t avgExecutionTime_FCYticks;
-			uint32_t sumExecutionTime_FCYticks;
-			uint16_t maxExecutionTime_FCYticks;
-			uint16_t currentExecutionTime_FCYticks;
-		#endif
-	#else
-		void (*task)(uint32_t);
-		uint32_t period_uS;
-		uint32_t countDown_uS;
-		uint32_t recurrenceTarget;
-		uint32_t recurrenceCount;
-		#ifdef TASK_PROFILING_ENABLED
-			uint32_t minExecutionTime_FCYticks;
-			uint32_t sumExecutionTime_FCYticks;
-			uint32_t avgExecutionTime_FCYticks;
-			uint32_t maxExecutionTime_FCYticks;
-			uint32_t currentExecutionTime_FCYticks;
-		#endif
+	void (*task)(uint32_t);
+	uint32_t period_uS;
+	uint32_t countDown_uS;
+	uint32_t recurrenceTarget;
+	uint32_t recurrenceCount;
+	#ifdef TASK_PROFILING_ENABLED
+		uint32_t minExecutionTime_FCYticks;
+		uint32_t sumExecutionTime_FCYticks;
+		uint32_t avgExecutionTime_FCYticks;
+		uint32_t maxExecutionTime_FCYticks;
+		uint32_t currentExecutionTime_FCYticks;
 	#endif
 } scheduledTasks[NUMBER_OF_SCHEDULED_TASKS];
+
 uint32_t minGlobalExecutionTime_uS;
 uint32_t avgGlobalExecutionTime_uS;
 uint32_t maxGlobalExecutionTime_uS;
 int16_t delayFlag = 0;
 
 /*************Function  Prototypes***************/
-
-/************* Device Definitions ***************/
-/************* Module Definitions ***************/
-/************* Other  Definitions ***************/
-
 void Task_Master(void)
+/************* Main Body Of Code  ***************/
 {
 	int16_t taskIndex;
 	int16_t time;
