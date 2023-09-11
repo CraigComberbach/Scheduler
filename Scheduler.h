@@ -8,7 +8,6 @@
  * The scheduler is able to use functions of the following format
  *   void Name_Of_Routine(unsigned long time_uS)
 */
-
 /***********Add to config file header************/
 /*
 //Scheduler Library
@@ -42,11 +41,11 @@ enum SCHEDULER_DEFINITIONS
 /*************    Enumeration     ***************/
 /***********State Machine Definitions************/
 /*************Function  Prototypes***************/
-void Task_Master(void);
-void Initialize_Scheduler(uint32_t newPeriod_uS);
-void Schedule_Task(enum SCHEDULER_DEFINITIONS taskDuJour, void (*newTask)(uint32_t), uint32_t newInitialDelay_uS, uint32_t newPeriod_uS, uint16_t newRepetitions);
+void Scheduler_Run(void);
+void Scheduler_Initialize(uint32_t newPeriod_uS);
+void Scheduler_Add_Task(enum SCHEDULER_DEFINITIONS taskDuJour, void (*newTask)(uint32_t), uint32_t newInitialDelay_uS, uint32_t newPeriod_uS, uint16_t newRepetitions);
 int8_t Waiting_To_Run_Tasks(void);
-void Expedite_Task(enum SCHEDULER_DEFINITIONS taskToExpedite);
+void Scheduler_Expedite_Task(enum SCHEDULER_DEFINITIONS taskToExpedite);
 void Scheduler_Tick_Interupt(void);
 
 #endif	/* SCHEDULER_H */

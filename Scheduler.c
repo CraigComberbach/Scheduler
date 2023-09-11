@@ -56,8 +56,8 @@ uint32_t maxGlobalExecutionTime_uS;
 int16_t delayFlag = 0;
 
 /*************Function  Prototypes***************/
-void Task_Master(void)
 /************* Main Body Of Code  ***************/
+void Scheduler_Run(void)
 {
 	int16_t taskIndex;
 	int16_t time;
@@ -105,7 +105,7 @@ void Task_Master(void)
 	return;
 }
 
-void Initialize_Scheduler(uint32_t newPeriod_uS)
+void Scheduler_Initialize(uint32_t newPeriod_uS)
 {
 	uint32_t period;
     uint8_t loopIndex = 0;
@@ -131,7 +131,7 @@ void Initialize_Scheduler(uint32_t newPeriod_uS)
 	return;
 }
 
-void Schedule_Task(enum SCHEDULER_DEFINITIONS taskName, void (*newTask)(uint32_t), uint32_t newInitialDelay_uS, uint32_t newPeriod_uS, uint16_t newRepetitions)
+void Scheduler_Add_Task(enum SCHEDULER_DEFINITIONS taskName, void (*newTask)(uint32_t), uint32_t newInitialDelay_uS, uint32_t newPeriod_uS, uint16_t newRepetitions)
 {
 	//Task Information
 	if(*newTask  != NULL_POINTER)
@@ -172,7 +172,7 @@ int8_t Waiting_To_Run_Tasks(void)
 	return delayFlag;
 }
 
-void Expedite_Task(enum SCHEDULER_DEFINITIONS taskToExpedite)
+void Scheduler_Expedite_Task(enum SCHEDULER_DEFINITIONS taskToExpedite)
 {
     if(taskToExpedite < NUMBER_OF_SCHEDULED_TASKS)
         scheduledTasks[taskToExpedite].countDown_uS = 0;
