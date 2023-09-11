@@ -35,7 +35,7 @@ v0.0.0	2016-05-26	Craig Comberbach	Compiler: XC16 v1.11
 /***********  Structure Definitions  ************/
 /***********State Machine Definitions************/
 /*************  Global Variables  ***************/
-uint32_t schedulerPeriod_uS;
+uint32_t schedulerPeriod_uS = 0;
 
 struct SCHEDULED_TASKS
 {
@@ -57,6 +57,7 @@ int16_t delayFlag = 0;
 
 /*************Function  Prototypes***************/
 void Run_Tasks(void);
+int8_t Waiting_To_Run_Tasks(void);
 
 /************* Main Body Of Code  ***************/
 void Scheduler_Run_Tasks(void)
@@ -121,26 +122,21 @@ void Run_Tasks(void)
 
 void Scheduler_Initialize(uint32_t newPeriod_uS)
 {
-	uint32_t period;
-    uint8_t loopIndex = 0;
+    uint8_t task;
 
-	//Ensure the period makes sense
-	if(newPeriod_uS != 0)
-		schedulerPeriod_uS = newPeriod_uS;
-	else
-		while(1)//TODO - DEBUG ME! I should never execute
-			asm("ClrWdt");
-
-	period = FCY_MHz;
-	period *= newPeriod_uS;
+	schedulerPeriod_uS = newPeriod_uS;
 	
-	if(period > 65535)
-		while(1);//This period can never run, we only have 16 bits of register
-
-    for(loopIndex = 0; loopIndex < NUMBER_OF_SCHEDULED_TASKS; loopIndex++)
+    for(task = 0; task < NUMBER_OF_SCHEDULED_TASKS; task++)
     {
-        scheduledTasks[loopIndex].task = NULL_POINTER;
+        scheduledTasks[task].task = NULL_POINTER;
     }
+	
+	return;
+}
+
+void Scheduler_Add_Profiling_Clock(volatile uint16_t *profilingTimer)
+{
+	TimerForProfiling = profilingTimer;
 	
 	return;
 }

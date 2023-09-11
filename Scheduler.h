@@ -42,9 +42,9 @@ enum SCHEDULER_DEFINITIONS
 /***********State Machine Definitions************/
 /*************Function  Prototypes***************/
 void Scheduler_Run_Tasks(void);
-void Scheduler_Initialize(void);
+void Scheduler_Initialize(uint32_t newPeriod_uS);
+void Scheduler_Add_Profiling_Clock(volatile uint16_t *profilingTimer);
 void Scheduler_Add_Task(enum SCHEDULER_DEFINITIONS taskDuJour, void (*newTask)(uint32_t), uint32_t newInitialDelay_uS, uint32_t newPeriod_uS, uint16_t newRepetitions);
-int8_t Waiting_To_Run_Tasks(void);
 void Scheduler_Expedite_Task(enum SCHEDULER_DEFINITIONS taskToExpedite);
 void Scheduler_Tick_Interupt(void);
 
