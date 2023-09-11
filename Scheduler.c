@@ -57,14 +57,14 @@ int16_t delayFlag = 0;
 
 /*************Function  Prototypes***************/
 void Run_Tasks(void);
-int8_t Waiting_To_Run_Tasks(void);
+void Task_Profiling(int32_t time, uint16_t task);
 
 /************* Main Body Of Code  ***************/
 void Scheduler_Run_Tasks(void)
 {
 	while(1)
 	{
-		while(Waiting_To_Run_Tasks())
+		while(delayFlag)
 		{
 			asm("ClrWdt");
 			Run_Tasks();
@@ -76,8 +76,8 @@ void Scheduler_Run_Tasks(void)
 
 void Run_Tasks(void)
 {
-	int16_t taskIndex;
-	int32_t time;
+	uint16_t taskIndex;
+	int32_t timeTaken;
 	
 
 	for(taskIndex = 0; taskIndex < NUMBER_OF_SCHEDULED_TASKS; ++taskIndex)
@@ -94,21 +94,11 @@ void Run_Tasks(void)
 					scheduledTasks[taskIndex].recurrenceCount = 1;
 
 				scheduledTasks[taskIndex].countDown_uS = scheduledTasks[taskIndex].period_uS;	//Reset for next time
-				time = *TimerForProfiling;//Record when the task started
+				timeTaken = *TimerForProfiling;//Record when the task started
 				scheduledTasks[taskIndex].task(scheduledTasks[taskIndex].period_uS);			//Run the current task, send the time since last execution
-				time = *TimerForProfiling - time;//Record how long the task took
+				timeTaken = *TimerForProfiling - timeTaken;//Record how long the task took
 
-				//Task profiling
-				//Minimum execution Time
-				if(time < scheduledTasks[taskIndex].minExecutionTime_FCYticks)
-					scheduledTasks[taskIndex].minExecutionTime_FCYticks = time;
-
-				//Maximum Execution time
-				if(time > scheduledTasks[taskIndex].maxExecutionTime_FCYticks)
-					scheduledTasks[taskIndex].maxExecutionTime_FCYticks = time;
-
-				//Average Execution Time
-				scheduledTasks[taskIndex].avgExecutionTime_FCYticks = scheduledTasks[taskIndex].avgExecutionTime_FCYticks + (time - scheduledTasks[taskIndex].avgExecutionTime_FCYticks) / (int32_t)scheduledTasks[taskIndex].recurrenceCount;
+				Task_Profiling(timeTaken, taskIndex);
 			}
 		}
 		else
@@ -117,6 +107,21 @@ void Run_Tasks(void)
 
 	delayFlag = 0;
 
+	return;
+}
+
+void Task_Profiling(int32_t time, uint16_t task)
+{
+	//Minimum execution Time
+	if(time < scheduledTasks[task].minExecutionTime_FCYticks)
+		scheduledTasks[task].minExecutionTime_FCYticks = time;
+
+	//Maximum Execution time
+	if(time > scheduledTasks[task].maxExecutionTime_FCYticks)
+		scheduledTasks[task].maxExecutionTime_FCYticks = time;
+
+	//Average Execution Time
+	scheduledTasks[task].avgExecutionTime_FCYticks = scheduledTasks[task].avgExecutionTime_FCYticks + (time - scheduledTasks[task].avgExecutionTime_FCYticks) / (int32_t)scheduledTasks[task].recurrenceCount;
 	return;
 }
 
@@ -143,37 +148,28 @@ void Scheduler_Add_Profiling_Clock(volatile uint16_t *profilingTimer)
 
 void Scheduler_Add_Task(enum SCHEDULER_DEFINITIONS taskName, void (*newTask)(uint32_t), uint32_t newInitialDelay_uS, uint32_t newPeriod_uS, uint16_t newRepetitions)
 {
-	//Task Information
-	if(*newTask  != NULL_POINTER)
-		scheduledTasks[taskName].task = newTask;
-	else
-		while(1);//TODO - DEBUG ME! I should never execute
+	if(*newTask  == NULL_POINTER)
+		while(1);//TODO - error handling
 
 	if(newPeriod_uS < schedulerPeriod_uS)
-		while(1);//TODO - DEBUG ME! I should never execute
+		while(1);//TODO - error handling
 
 	if(newInitialDelay_uS < schedulerPeriod_uS)
-		while(1);//TODO - DEBUG ME! I should never execute
+		while(1);//TODO - error handling
 
-	//Timing Information
+	scheduledTasks[taskName].task = newTask;
+
 	scheduledTasks[taskName].countDown_uS = newInitialDelay_uS;
 	scheduledTasks[taskName].period_uS = newPeriod_uS;
 
-	//Recurrence Information
 	scheduledTasks[taskName].recurrenceTarget = newRepetitions;
 	scheduledTasks[taskName].recurrenceCount = 0;
 
-	//Runtime Statistics Information
 	scheduledTasks[taskName].minExecutionTime_FCYticks = ~0;
 	scheduledTasks[taskName].avgExecutionTime_FCYticks = 0;
 	scheduledTasks[taskName].maxExecutionTime_FCYticks = 0;
 
 	return;
-}
-
-int8_t Waiting_To_Run_Tasks(void)
-{
-	return delayFlag;
 }
 
 void Scheduler_Expedite_Task(enum SCHEDULER_DEFINITIONS taskToExpedite)
