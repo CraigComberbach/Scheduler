@@ -1,7 +1,7 @@
 /******************************************************************************
 Version History:
 v1.0.0	2023-09-26	Craig Comberbach	Compiler: XC16 v2.00
- * The schedule now handles the infinite while loop
+ * The schedule now handles the infinite loop
  * Task profiling is now done with an inline algorithim instead of sum and divide
  * The Scheduler timer is now handled by the timer library
  * Setting the period is now done independently of the initialization
@@ -52,7 +52,7 @@ struct SCHEDULED_TASKS
 	uint16_t minExecutionTime_FCYticks;
 	uint16_t avgExecutionTime_FCYticks;
 	uint16_t maxExecutionTime_FCYticks;
-} scheduledTasks[NUMBER_OF_SCHEDULED_TASKS];
+} self[NUMBER_OF_SCHEDULED_TASKS];
 
 /**********Global Variables***********/
 uint32_t schedulerPeriod_uS = 0;
@@ -89,30 +89,30 @@ void Run_Tasks(void)
 
 	for(taskIndex = 0; taskIndex < NUMBER_OF_SCHEDULED_TASKS; ++taskIndex)
 	{
-		if(scheduledTasks[taskIndex].task == NULL_POINTER)
+		if(self[taskIndex].task == NULL_POINTER)
             continue;
         
-		if(scheduledTasks[taskIndex].state != RUNNING)
+		if(self[taskIndex].state != RUNNING)
 			continue;
 		
-		if(scheduledTasks[taskIndex].countDown_uS <= schedulerPeriod_uS)
+		if(self[taskIndex].countDown_uS <= schedulerPeriod_uS)
 		{
-			if((scheduledTasks[taskIndex].recurrenceCount < scheduledTasks[taskIndex].recurrenceTarget) || (scheduledTasks[taskIndex].recurrenceTarget == PERMANENT_TASK))
+			if((self[taskIndex].recurrenceCount < self[taskIndex].recurrenceTarget) || (self[taskIndex].recurrenceTarget == PERMANENT_TASK))
 			{
 				//Document how many times this task has run (safely rolls over)
-				if(++scheduledTasks[taskIndex].recurrenceCount == 0)
-					scheduledTasks[taskIndex].recurrenceCount = 1;
+				if(++self[taskIndex].recurrenceCount == 0)
+					self[taskIndex].recurrenceCount = 1;
 
-				scheduledTasks[taskIndex].countDown_uS = scheduledTasks[taskIndex].period_uS;	//Reset for next time
+				self[taskIndex].countDown_uS = self[taskIndex].period_uS;	//Reset for next time
 				timeTaken = *TimerForProfiling;//Record when the task started
-				scheduledTasks[taskIndex].task(scheduledTasks[taskIndex].period_uS);			//Run the current task, send the time since last execution
+				self[taskIndex].task(self[taskIndex].period_uS);			//Run the current task, send the time since last execution
 				timeTaken = *TimerForProfiling - timeTaken;//Record how long the task took
 
 				Task_Profiling(timeTaken, taskIndex);
 			}
 		}
 		else
-			scheduledTasks[taskIndex].countDown_uS -= schedulerPeriod_uS;
+			self[taskIndex].countDown_uS -= schedulerPeriod_uS;
 	}
 
 	delayFlag = 0;
@@ -123,15 +123,15 @@ void Run_Tasks(void)
 void Task_Profiling(int32_t time, uint16_t task)
 {
 	//Minimum execution Time
-	if(time < scheduledTasks[task].minExecutionTime_FCYticks)
-		scheduledTasks[task].minExecutionTime_FCYticks = time;
+	if(time < self[task].minExecutionTime_FCYticks)
+		self[task].minExecutionTime_FCYticks = time;
 
 	//Maximum Execution time
-	if(time > scheduledTasks[task].maxExecutionTime_FCYticks)
-		scheduledTasks[task].maxExecutionTime_FCYticks = time;
+	if(time > self[task].maxExecutionTime_FCYticks)
+		self[task].maxExecutionTime_FCYticks = time;
 
 	//Average Execution Time
-	scheduledTasks[task].avgExecutionTime_FCYticks = scheduledTasks[task].avgExecutionTime_FCYticks + (time - scheduledTasks[task].avgExecutionTime_FCYticks) / (int32_t)scheduledTasks[task].recurrenceCount;
+	self[task].avgExecutionTime_FCYticks = self[task].avgExecutionTime_FCYticks + (time - self[task].avgExecutionTime_FCYticks) / (int32_t)self[task].recurrenceCount;
 	return;
 }
 
@@ -172,18 +172,18 @@ void Scheduler_Add_Task(enum SCHEDULER_DEFINITIONS task, void (*newTask)(uint32_
 	if(initialDelay_uS < schedulerPeriod_uS)
 		while(1);//TODO - error handling
 
-	scheduledTasks[task].task = newTask;
-	scheduledTasks[task].state = RUNNING;
+	self[task].task = newTask;
+	self[task].state = RUNNING;
 
-	scheduledTasks[task].countDown_uS = initialDelay_uS;
-	scheduledTasks[task].period_uS = taskPeriod_uS;
+	self[task].countDown_uS = initialDelay_uS;
+	self[task].period_uS = taskPeriod_uS;
 
-	scheduledTasks[task].recurrenceTarget = numberOfRepetitions;
-	scheduledTasks[task].recurrenceCount = 0;
+	self[task].recurrenceTarget = numberOfRepetitions;
+	self[task].recurrenceCount = 0;
 
-	scheduledTasks[task].minExecutionTime_FCYticks = UINT16_MAX;
-	scheduledTasks[task].avgExecutionTime_FCYticks = 0;
-	scheduledTasks[task].maxExecutionTime_FCYticks = 0;
+	self[task].minExecutionTime_FCYticks = UINT16_MAX;
+	self[task].avgExecutionTime_FCYticks = 0;
+	self[task].maxExecutionTime_FCYticks = 0;
 
 	return;
 }
@@ -192,7 +192,7 @@ void Scheduler_Expedite_Task(enum SCHEDULER_DEFINITIONS task)
 {
     if(task < NUMBER_OF_SCHEDULED_TASKS)
 	{
-        scheduledTasks[task].countDown_uS = 0;
+        self[task].countDown_uS = 0;
 	}
     
     return;
@@ -206,9 +206,9 @@ void Scheduler_Timer_Interupt(void)
 
 void Scheduler_Start_Task(enum SCHEDULER_DEFINITIONS task)
 {
-	if((task < NUMBER_OF_SCHEDULED_TASKS) && (scheduledTasks[task].state == PAUSED))
+	if((task < NUMBER_OF_SCHEDULED_TASKS) && (self[task].state == PAUSED))
 	{
-		scheduledTasks[task].state = RUNNING;
+		self[task].state = RUNNING;
 	}
 
 	return;
@@ -216,9 +216,9 @@ void Scheduler_Start_Task(enum SCHEDULER_DEFINITIONS task)
 
 void Scheduler_Pause_Task(enum SCHEDULER_DEFINITIONS task)
 {
-	if((task < NUMBER_OF_SCHEDULED_TASKS) && (scheduledTasks[task].state == RUNNING))
+	if((task < NUMBER_OF_SCHEDULED_TASKS) && (self[task].state == RUNNING))
 	{
-		scheduledTasks[task].state = PAUSED;
+		self[task].state = PAUSED;
 	}
 
 	return;
@@ -236,15 +236,15 @@ void Scheduler_End_Task(enum SCHEDULER_DEFINITIONS task)
 
 void Initialize_Single_Task(enum SCHEDULER_DEFINITIONS task)
 {
-	scheduledTasks[task].minExecutionTime_FCYticks = 0;
-	scheduledTasks[task].avgExecutionTime_FCYticks = 0;
-	scheduledTasks[task].maxExecutionTime_FCYticks = 0;
-	scheduledTasks[task].countDown_uS = 0;
-	scheduledTasks[task].period_uS = 0;
-	scheduledTasks[task].recurrenceCount = 0;
-	scheduledTasks[task].recurrenceTarget = 0;
-	scheduledTasks[task].state = FINISHED;
-	scheduledTasks[task].task = NULL_POINTER;
+	self[task].minExecutionTime_FCYticks = 0;
+	self[task].avgExecutionTime_FCYticks = 0;
+	self[task].maxExecutionTime_FCYticks = 0;
+	self[task].countDown_uS = 0;
+	self[task].period_uS = 0;
+	self[task].recurrenceCount = 0;
+	self[task].recurrenceTarget = 0;
+	self[task].state = FINISHED;
+	self[task].task = NULL_POINTER;
 
 	return;
 }
