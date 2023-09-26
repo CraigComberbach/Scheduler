@@ -8,39 +8,38 @@
  * The scheduler is able to use functions of the following format
  *   void Name_Of_Routine(unsigned long time_uS)
 */
-/***********Add to config file header************/
+/**********Add to config.c************/
 /*
-//Scheduler Library
-#define SCHEDULER_MAJOR	0
-#define SCHEDULER_MINOR	2
-#define SCHEDULER_PATCH	0
-
 enum SCHEDULER_DEFINITIONS
 {
 	TASK_,
 	NUMBER_OF_SCHEDULED_TASKS
 };
+
+	//Scheduler Library
+	#define SCHEDULER_MAJOR	0
+	#define SCHEDULER_MINOR	1
+	#define SCHEDULER_PATCH	0
 */
 
-/***************Add to config file***************/
+/**********Add to config.h************/
 /*
 #ifndef SCHEDULER_LIBRARY
-	#error "You need to include the Scheduler library for this code to compile"
+	#error "Scheduler library was not found"
 #endif
- */
+*/
 
-/*************Semantic  Versioning***************/
-#define SCHEDULER_HAL
+/********Semantic Versioning**********/
+#define SCHEDULER_LIBRARY
 
-/*************   Magic  Numbers   ***************/
+/***********Magic Numbers*************/
 #define PERMANENT_TASK	0
 #define us				1
 #define ms				1000
 #define s				1000000
 
-/*************    Enumeration     ***************/
-/***********State Machine Definitions************/
-/*************Function  Prototypes***************/
+/************Enumeration**************/
+/****Module Function Prototypes*******/
 void Scheduler_Initialize(void);
 void Scheduler_Add_Profiling_Clock(volatile uint16_t *profilingTimer);
 void Scheduler_Set_Period_us(uint32_t newPeriod_uS);

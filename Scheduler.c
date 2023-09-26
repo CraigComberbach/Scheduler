@@ -1,9 +1,10 @@
-/**************************************************************************************************
+/******************************************************************************
 Version History:
-v1.0.0	2023-09-11	Craig Comberbach	Compiler: XC16 v2.00
+v1.0.0	2023-09-26	Craig Comberbach	Compiler: XC16 v2.00
  * The schedule now handles the infinite while loop
  * Task profiling is now done with an inline algorithim instead of sum and divide
  * The Scheduler timer is now handled by the timer library
+ * Setting the period is now done independently of the initialization
 v0.1.0	2016-05-30	Craig Comberbach	Compiler: XC16 v1.11
  * Added limited recurrence
  * Refactored the Task Master function to be simpler
@@ -11,27 +12,25 @@ v0.1.0	2016-05-30	Craig Comberbach	Compiler: XC16 v1.11
 v0.0.0	2016-05-26	Craig Comberbach	Compiler: XC16 v1.11
  * First version - Most functionality implemented
  * Does not implement limited recurrence tasks, only permanent ones
- 
-**************************************************************************************************/
-/*************    Header Files    ***************/
+******************************************************************************/
+/************Header Files*************/
 #include <stdint.h>
 #include "Config.h"
 #include "Scheduler.h"
-#include "Timers.h"
 
-/*************Semantic  Versioning***************/
+/********Semantic Versioning**********/
 #if SCHEDULER_MAJOR != 0
-	#error "Scheduler library has had a change that loses some previously supported functionality"
-#elif SCHEDULER_MINOR != 2
-	#error "Scheduler library has new features that this code may benefit from"
+	#error "Scheduler major revision update is available"
+#elif SCHEDULER_MINOR != 1
+	#error "Scheduler minor revision update is available"
 #elif SCHEDULER_PATCH != 0
-	#error "Scheduler library has had a bug fix, you should check to see that we weren't relying on a bug for functionality"
+	#error "Scheduler patch revision update is available"
 #endif
 
-/*************   Magic  Numbers   ***************/
+/***********Magic Numbers*************/
 #define NULL_POINTER	(void*)0
 
-/*************    Enumeration     ***************/
+/************Enumeration**************/
 enum SCHEDULER_STATE
 {
 	RUNNING,
@@ -39,11 +38,7 @@ enum SCHEDULER_STATE
 	FINISHED
 };
 
-/***********  Structure Definitions  ************/
-/***********State Machine Definitions************/
-/*************  Global Variables  ***************/
-uint32_t schedulerPeriod_uS = 0;
-
+/*********Object Definition***********/
 struct SCHEDULED_TASKS
 {
 	void (*task)(uint32_t);
@@ -59,16 +54,19 @@ struct SCHEDULED_TASKS
 	uint16_t maxExecutionTime_FCYticks;
 } scheduledTasks[NUMBER_OF_SCHEDULED_TASKS];
 
+/**********Global Variables***********/
+uint32_t schedulerPeriod_uS = 0;
+
 volatile uint16_t *TimerForProfiling;
 
 int16_t delayFlag = 0;
 
-/*************Function  Prototypes***************/
+/*****Local Function Prototypes*******/
 void Run_Tasks(void);
 void Task_Profiling(int32_t time, uint16_t task);
 void Initialize_Single_Task(enum SCHEDULER_DEFINITIONS task);
 
-/************* Main Body Of Code  ***************/
+/*********Main Body Of Code***********/
 void Scheduler_Run_Tasks(void)
 {
 	while(1)
