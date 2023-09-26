@@ -5,6 +5,7 @@ v1.0.0	2023-09-26	Craig Comberbach	Compiler: XC16 v2.00
  * Task profiling is now done with an inline algorithim instead of sum and divide
  * The Scheduler timer is now handled by the timer library
  * Setting the period is now done independently of the initialization
+ * Now supports Start, Pause, and Ending of tasks
 v0.1.0	2016-05-30	Craig Comberbach	Compiler: XC16 v1.11
  * Added limited recurrence
  * Refactored the Task Master function to be simpler
@@ -19,9 +20,9 @@ v0.0.0	2016-05-26	Craig Comberbach	Compiler: XC16 v1.11
 #include "Scheduler.h"
 
 /********Semantic Versioning**********/
-#if SCHEDULER_MAJOR != 0
+#if SCHEDULER_MAJOR != 1
 	#error "Scheduler major revision update is available"
-#elif SCHEDULER_MINOR != 1
+#elif SCHEDULER_MINOR != 0
 	#error "Scheduler minor revision update is available"
 #elif SCHEDULER_PATCH != 0
 	#error "Scheduler patch revision update is available"

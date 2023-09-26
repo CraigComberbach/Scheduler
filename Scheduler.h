@@ -17,8 +17,8 @@ enum SCHEDULER_DEFINITIONS
 };
 
 	//Scheduler Library
-	#define SCHEDULER_MAJOR	0
-	#define SCHEDULER_MINOR	1
+	#define SCHEDULER_MAJOR	1
+	#define SCHEDULER_MINOR	0
 	#define SCHEDULER_PATCH	0
  */
 
