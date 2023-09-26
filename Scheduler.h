@@ -7,7 +7,7 @@
  * How to Use:
  * The scheduler is able to use functions of the following format
  *   void Name_Of_Routine(unsigned long time_uS)
-*/
+ */
 /**********Add to config.c************/
 /*
 enum SCHEDULER_DEFINITIONS
@@ -20,14 +20,14 @@ enum SCHEDULER_DEFINITIONS
 	#define SCHEDULER_MAJOR	0
 	#define SCHEDULER_MINOR	1
 	#define SCHEDULER_PATCH	0
-*/
+ */
 
 /**********Add to config.h************/
 /*
 #ifndef SCHEDULER_LIBRARY
 	#error "Scheduler library was not found"
 #endif
-*/
+ */
 
 /********Semantic Versioning**********/
 #define SCHEDULER_LIBRARY

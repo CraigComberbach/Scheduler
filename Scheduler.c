@@ -12,7 +12,7 @@ v0.1.0	2016-05-30	Craig Comberbach	Compiler: XC16 v1.11
 v0.0.0	2016-05-26	Craig Comberbach	Compiler: XC16 v1.11
  * First version - Most functionality implemented
  * Does not implement limited recurrence tasks, only permanent ones
-******************************************************************************/
+ *****************************************************************************/
 /************Header Files*************/
 #include <stdint.h>
 #include "Config.h"
@@ -47,7 +47,7 @@ struct SCHEDULED_TASKS
 	uint32_t countDown_uS;
 	uint32_t recurrenceTarget;
 	uint32_t recurrenceCount;
-	
+
 	//Task Profiling
 	uint16_t minExecutionTime_FCYticks;
 	uint16_t avgExecutionTime_FCYticks;
@@ -77,7 +77,7 @@ void Scheduler_Run_Tasks(void)
 			Run_Tasks();
 		}
 	}
-	
+
 	return;
 }
 
@@ -85,34 +85,42 @@ void Run_Tasks(void)
 {
 	uint16_t taskIndex;
 	int32_t timeTaken;
-	
+
 
 	for(taskIndex = 0; taskIndex < NUMBER_OF_SCHEDULED_TASKS; ++taskIndex)
 	{
 		if(self[taskIndex].task == NULL_POINTER)
-            continue;
-        
-		if(self[taskIndex].state != RUNNING)
+		{
 			continue;
-		
+		}
+
+		if(self[taskIndex].state != RUNNING)
+		{
+			continue;
+		}
+
 		if(self[taskIndex].countDown_uS <= schedulerPeriod_uS)
 		{
 			if((self[taskIndex].recurrenceCount < self[taskIndex].recurrenceTarget) || (self[taskIndex].recurrenceTarget == PERMANENT_TASK))
 			{
 				//Document how many times this task has run (safely rolls over)
 				if(++self[taskIndex].recurrenceCount == 0)
+				{
 					self[taskIndex].recurrenceCount = 1;
+				}
 
-				self[taskIndex].countDown_uS = self[taskIndex].period_uS;	//Reset for next time
-				timeTaken = *TimerForProfiling;//Record when the task started
-				self[taskIndex].task(self[taskIndex].period_uS);			//Run the current task, send the time since last execution
-				timeTaken = *TimerForProfiling - timeTaken;//Record how long the task took
+				self[taskIndex].countDown_uS = self[taskIndex].period_uS; //Reset for next time
+				timeTaken = *TimerForProfiling; //Record when the task started
+				self[taskIndex].task(self[taskIndex].period_uS); //Run the current task, send the time since last execution
+				timeTaken = *TimerForProfiling - timeTaken; //Record how long the task took
 
 				Task_Profiling(timeTaken, taskIndex);
 			}
 		}
 		else
+		{
 			self[taskIndex].countDown_uS -= schedulerPeriod_uS;
+		}
 	}
 
 	delayFlag = 0;
@@ -124,53 +132,64 @@ void Task_Profiling(int32_t time, uint16_t task)
 {
 	//Minimum execution Time
 	if(time < self[task].minExecutionTime_FCYticks)
+	{
 		self[task].minExecutionTime_FCYticks = time;
+	}
 
 	//Maximum Execution time
 	if(time > self[task].maxExecutionTime_FCYticks)
+	{
 		self[task].maxExecutionTime_FCYticks = time;
+	}
 
 	//Average Execution Time
-	self[task].avgExecutionTime_FCYticks = self[task].avgExecutionTime_FCYticks + (time - self[task].avgExecutionTime_FCYticks) / (int32_t)self[task].recurrenceCount;
+	self[task].avgExecutionTime_FCYticks = self[task].avgExecutionTime_FCYticks + (time - self[task].avgExecutionTime_FCYticks) / (int32_t) self[task].recurrenceCount;
+
 	return;
 }
 
 void Scheduler_Initialize(void)
 {
-    uint8_t task;
+	uint8_t task;
 
-    for(task = 0; task < NUMBER_OF_SCHEDULED_TASKS; task++)
-    {
+	for(task = 0; task < NUMBER_OF_SCHEDULED_TASKS; task++)
+	{
 		Initialize_Single_Task(task);
-    }
-	
+	}
+
 	return;
 }
 
 void Scheduler_Set_Period_us(uint32_t newPeriod_uS)
 {
 	schedulerPeriod_uS = newPeriod_uS;
-	
+
 	return;
 }
 
 void Scheduler_Add_Profiling_Clock(volatile uint16_t *profilingTimer)
 {
 	TimerForProfiling = profilingTimer;
-	
+
 	return;
 }
 
 void Scheduler_Add_Task(enum SCHEDULER_DEFINITIONS task, void (*newTask)(uint32_t), uint32_t initialDelay_uS, uint32_t taskPeriod_uS, uint16_t numberOfRepetitions)
 {
-	if(*newTask  == NULL_POINTER)
-		while(1);//TODO - error handling
+	if(*newTask == NULL_POINTER)
+	{
+		while(1); //TODO - error handling
+	}
 
 	if(taskPeriod_uS < schedulerPeriod_uS)
-		while(1);//TODO - error handling
+	{
+		while(1); //TODO - error handling
+	}
 
 	if(initialDelay_uS < schedulerPeriod_uS)
-		while(1);//TODO - error handling
+	{
+		while(1); //TODO - error handling
+	}
 
 	self[task].task = newTask;
 	self[task].state = RUNNING;
@@ -190,12 +209,12 @@ void Scheduler_Add_Task(enum SCHEDULER_DEFINITIONS task, void (*newTask)(uint32_
 
 void Scheduler_Expedite_Task(enum SCHEDULER_DEFINITIONS task)
 {
-    if(task < NUMBER_OF_SCHEDULED_TASKS)
+	if(task < NUMBER_OF_SCHEDULED_TASKS)
 	{
-        self[task].countDown_uS = 0;
+		self[task].countDown_uS = 0;
 	}
-    
-    return;
+
+	return;
 }
 
 void Scheduler_Timer_Interupt(void)
@@ -230,7 +249,7 @@ void Scheduler_End_Task(enum SCHEDULER_DEFINITIONS task)
 	{
 		Initialize_Single_Task(task);
 	}
-	
+
 	return;
 }
 
