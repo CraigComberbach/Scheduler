@@ -66,6 +66,7 @@ int16_t delayFlag = 0;
 /*************Function  Prototypes***************/
 void Run_Tasks(void);
 void Task_Profiling(int32_t time, uint16_t task);
+void Initialize_Single_Task(enum SCHEDULER_DEFINITIONS task);
 
 /************* Main Body Of Code  ***************/
 void Scheduler_Run_Tasks(void)
@@ -144,8 +145,7 @@ void Scheduler_Initialize(uint32_t newPeriod_uS)
 	
     for(task = 0; task < NUMBER_OF_SCHEDULED_TASKS; task++)
     {
-        scheduledTasks[task].task = NULL_POINTER;
-		scheduledTasks[task].state = FINISHED;
+		Initialize_Single_Task(task);
     }
 	
 	return;
@@ -225,16 +225,23 @@ void Scheduler_End_Task(enum SCHEDULER_DEFINITIONS task)
 {
 	if(task < NUMBER_OF_SCHEDULED_TASKS)
 	{
-		scheduledTasks[task].minExecutionTime_FCYticks = 0;
-		scheduledTasks[task].avgExecutionTime_FCYticks = 0;
-		scheduledTasks[task].maxExecutionTime_FCYticks = 0;
-		scheduledTasks[task].countDown_uS = 0;
-		scheduledTasks[task].period_uS = 0;
-		scheduledTasks[task].recurrenceCount = 0;
-		scheduledTasks[task].recurrenceTarget = 0;
-		scheduledTasks[task].state = FINISHED;
-		scheduledTasks[task].task = NULL_POINTER;
+		Initialize_Single_Task(task);
 	}
 	
+	return;
+}
+
+void Initialize_Single_Task(enum SCHEDULER_DEFINITIONS task)
+{
+	scheduledTasks[task].minExecutionTime_FCYticks = 0;
+	scheduledTasks[task].avgExecutionTime_FCYticks = 0;
+	scheduledTasks[task].maxExecutionTime_FCYticks = 0;
+	scheduledTasks[task].countDown_uS = 0;
+	scheduledTasks[task].period_uS = 0;
+	scheduledTasks[task].recurrenceCount = 0;
+	scheduledTasks[task].recurrenceTarget = 0;
+	scheduledTasks[task].state = FINISHED;
+	scheduledTasks[task].task = NULL_POINTER;
+
 	return;
 }
