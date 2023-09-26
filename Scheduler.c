@@ -137,16 +137,21 @@ void Task_Profiling(int32_t time, uint16_t task)
 	return;
 }
 
-void Scheduler_Initialize(uint32_t newPeriod_uS)
+void Scheduler_Initialize(void)
 {
     uint8_t task;
 
-	schedulerPeriod_uS = newPeriod_uS;
-	
     for(task = 0; task < NUMBER_OF_SCHEDULED_TASKS; task++)
     {
 		Initialize_Single_Task(task);
     }
+	
+	return;
+}
+
+void Scheduler_Set_Period_us(uint32_t newPeriod_uS)
+{
+	schedulerPeriod_uS = newPeriod_uS;
 	
 	return;
 }
@@ -195,7 +200,7 @@ void Scheduler_Expedite_Task(enum SCHEDULER_DEFINITIONS task)
     return;
 }
 
-void Scheduler_Tick_Interupt(void)
+void Scheduler_Timer_Interupt(void)
 {
 	delayFlag = 1;
 	return;

@@ -41,25 +41,19 @@ enum SCHEDULER_DEFINITIONS
 /*************    Enumeration     ***************/
 /***********State Machine Definitions************/
 /*************Function  Prototypes***************/
-void Scheduler_Run_Tasks(void);
-void Scheduler_Initialize(uint32_t newPeriod_uS);
+void Scheduler_Initialize(void);
 void Scheduler_Add_Profiling_Clock(volatile uint16_t *profilingTimer);
+void Scheduler_Set_Period_us(uint32_t newPeriod_uS);
+
+void Scheduler_Run_Tasks(void);
+
 void Scheduler_Add_Task(enum SCHEDULER_DEFINITIONS task, void (*newTask)(uint32_t), uint32_t initialDelay_uS, uint32_t taskPeriod_uS, uint16_t numberOfRepetitions);
 void Scheduler_Expedite_Task(enum SCHEDULER_DEFINITIONS task);
-void Scheduler_Tick_Interupt(void);
 void Scheduler_Start_Task(enum SCHEDULER_DEFINITIONS task);
 void Scheduler_Pause_Task(enum SCHEDULER_DEFINITIONS task);
 void Scheduler_End_Task(enum SCHEDULER_DEFINITIONS task);
 
-/* New functions to implement
- *  StartTask
- *  PauseTask
- *  EndTask
- * 
- * Additional functionality to add to tasks
- *  Arbitrary pointer, normally not used, but can be assigned as needed
- */
-
+void Scheduler_Timer_Interupt(void);
 
 #endif	/* SCHEDULER_H */
 
