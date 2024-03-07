@@ -8,6 +8,9 @@
  * The scheduler is able to use functions of the following format
  *   void Name_Of_Routine(unsigned long time_uS)
  */
+/**************Headers****************/
+#include <stdint.h>
+
 /**********Add to config.c************/
 /*
 enum SCHEDULER_DEFINITIONS

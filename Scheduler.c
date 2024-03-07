@@ -1,5 +1,9 @@
 /******************************************************************************
 Version History:
+v1.0.1  2024-03-06  Craig Comberbach    Compiler: GCC 10.3-2021.10
+ * Updated profiling variables to be 32-bit
+ * delayFlag is now defined as volatile (it is used in an interrupt)
+ * Included stdint.h in the header file instead of the C file
 v1.0.0	2023-09-26	Craig Comberbach	Compiler: XC16 v2.00
  * The schedule now handles the infinite loop
  * Task profiling is now done with an inline algorithim instead of sum and divide
@@ -15,7 +19,6 @@ v0.0.0	2016-05-26	Craig Comberbach	Compiler: XC16 v1.11
  * Does not implement limited recurrence tasks, only permanent ones
  *****************************************************************************/
 /************Header Files*************/
-#include <stdint.h>
 #include "Config.h"
 #include "Scheduler.h"
 
@@ -24,7 +27,7 @@ v0.0.0	2016-05-26	Craig Comberbach	Compiler: XC16 v1.11
 	#error "Scheduler major revision update is available"
 #elif SCHEDULER_MINOR != 0
 	#error "Scheduler minor revision update is available"
-#elif SCHEDULER_PATCH != 0
+#elif SCHEDULER_PATCH != 1
 	#error "Scheduler patch revision update is available"
 #endif
 
@@ -50,9 +53,9 @@ struct SCHEDULED_TASKS
 	uint32_t recurrenceCount;
 
 	//Task Profiling
-	uint16_t minExecutionTime_FCYticks;
-	uint16_t avgExecutionTime_FCYticks;
-	uint16_t maxExecutionTime_FCYticks;
+	uint32_t minExecutionTime_FCYticks;
+	uint32_t avgExecutionTime_FCYticks;
+	uint32_t maxExecutionTime_FCYticks;
 } self[NUMBER_OF_SCHEDULED_TASKS];
 
 /**********Global Variables***********/
@@ -60,11 +63,11 @@ uint32_t schedulerPeriod_uS = 0;
 
 volatile uint16_t *TimerForProfiling;
 
-int16_t delayFlag = 0;
+volatile int16_t delayFlag = 0;
 
 /*****Local Function Prototypes*******/
 void Run_Tasks(void);
-void Task_Profiling(int32_t time, uint16_t task);
+void Task_Profiling(uint32_t time, uint16_t task);
 void Initialize_Single_Task(enum SCHEDULER_DEFINITIONS task);
 
 /*********Main Body Of Code***********/
@@ -74,7 +77,6 @@ void Scheduler_Run_Tasks(void)
 	{
 		while(delayFlag)
 		{
-			asm("ClrWdt");
 			Run_Tasks();
 		}
 	}
@@ -85,7 +87,7 @@ void Scheduler_Run_Tasks(void)
 void Run_Tasks(void)
 {
 	uint16_t taskIndex;
-	int32_t timeTaken;
+	uint32_t timeTaken;
 
 
 	for(taskIndex = 0; taskIndex < NUMBER_OF_SCHEDULED_TASKS; ++taskIndex)
@@ -129,7 +131,7 @@ void Run_Tasks(void)
 	return;
 }
 
-void Task_Profiling(int32_t time, uint16_t task)
+void Task_Profiling(uint32_t time, uint16_t task)
 {
 	//Minimum execution Time
 	if(time < self[task].minExecutionTime_FCYticks)
@@ -144,7 +146,7 @@ void Task_Profiling(int32_t time, uint16_t task)
 	}
 
 	//Average Execution Time
-	self[task].avgExecutionTime_FCYticks = self[task].avgExecutionTime_FCYticks + (time - self[task].avgExecutionTime_FCYticks) / (int32_t) self[task].recurrenceCount;
+	self[task].avgExecutionTime_FCYticks = self[task].avgExecutionTime_FCYticks + (time - self[task].avgExecutionTime_FCYticks) / self[task].recurrenceCount;
 
 	return;
 }
